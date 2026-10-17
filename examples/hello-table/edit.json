@@ -1,0 +1,21 @@
+{
+  "title": "Hello, Table",
+  "bpm": 120,
+  "fps": 24,
+  "width": 1280,
+  "height": 720,
+  "beats": 20,
+  "palette": {"bg": "#14110F", "fg": "#F2EDE4"},
+  "font": "\"Helvetica Neue\", Helvetica, Arial, sans-serif",
+  "picture": [
+    {"beat": 0, "beats": 2, "card": "HELLO,"},
+    {"beat": 2, "beats": 6, "take": "V01", "media_start": 0.5},
+    {"beat": 8, "beats": 6, "take": "V02", "media_start": 0.5},
+    {"beat": 14, "beats": 6, "card": "TABLE."}
+  ],
+  "audio": [
+    {"id": "music", "src": "audio/music.mp3", "at": 0.0, "volume": 0.8},
+    {"id": "vo1", "src": "audio/vo-1.mp3", "at": 0.5, "volume": 1.0},
+    {"id": "sfx-tap", "src": "audio/sfx-tap.mp3", "at": 4.0, "volume": 0.7}
+  ]
+}

@@ -1,0 +1,25 @@
+# generated media and run output
+out/
+takes/
+frames/
+audio/
+stills/
+renders/
+*.mp4
+*.wav
+*.mov
+*.mp3
+*.png
+.transcode-cache/
+snapshots/
+# the composition build_comp.py writes into a project
+examples/*/index.html
+examples/*/SPEND.md
+# keys and local junk
+.env
+.env.*
+__pycache__/
+.ruff_cache/
+.DS_Store
+# Hyperframes render/studio state (holds absolute local paths)
+.hyperframes/

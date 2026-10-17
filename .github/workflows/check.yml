@@ -1,0 +1,65 @@
+name: check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ruff
+      - run: make lint
+
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash tools/scan_private.sh
+
+  doctor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # report mode on a keyless runner: must exit 0 and print the full table
+      - run: python3 tools/doctor.py --offline
+      - name: every tool answers --help without keys
+        run: for f in tools/*.py; do python3 "$f" --help > /dev/null || { echo "--help failed: $f"; exit 1; }; done
+      - name: a missing key fails with one 'set NAME' line
+        run: |
+          out=$(python3 tools/eleven.py sfx x 1 a.mp3 2>&1 || true)
+          echo "$out"
+          echo "$out" | grep -q '^set ELEVENLABS_API_KEY'
+
+  demo-dry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg fonts-dejavu-core
+      - run: pip install -r requirements.txt
+      - run: ffmpeg -version | head -1
+      - run: make demo-dry
+      - name: proof files exist
+        run: ls -la examples/hello-table/out/final.mp4 examples/hello-table/frames/contact-sheet.png examples/hello-table/SPEND.md examples/hello-table/index.html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hello-table-dry
+          path: |
+            examples/hello-table/out/final.mp4
+            examples/hello-table/frames/
+            examples/hello-table/SPEND.md
+            examples/hello-table/index.html
