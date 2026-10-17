@@ -52,11 +52,20 @@ jobs:
         with:
           python-version: "3.12"
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg fonts-dejavu-core
-      - run: pip install -r requirements.txt
       - run: ffmpeg -version | head -1
-      - run: make demo-dry
+      # exactly what a new user does: a fresh venv, the pip step from the README, then the demo
+      - name: fresh venv, pip install, make demo-dry
+        run: |
+          python3 -m venv .venv
+          . .venv/bin/activate
+          pip install -r requirements.txt
+          make demo-dry
       - name: proof files exist
         run: ls -la examples/hello-table/out/final.mp4 examples/hello-table/frames/contact-sheet.png examples/hello-table/SPEND.md examples/hello-table/index.html
+      - name: the run leaves the tree clean
+        run: |
+          git status --porcelain
+          test -z "$(git status --porcelain)"
       - uses: actions/upload-artifact@v4
         with:
           name: hello-table-dry
@@ -65,3 +74,28 @@ jobs:
             examples/hello-table/frames/
             examples/hello-table/SPEND.md
             examples/hello-table/index.html
+
+  # a new user who skipped the pip step: make demo-dry must stop first with one line, no traceback, nothing built
+  demo-dry-no-deps:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg fonts-dejavu-core
+      - name: make demo-dry without numpy exits non-zero with the one-line pip message
+        run: |
+          python3 -m venv .venv
+          . .venv/bin/activate
+          ! python3 -c "import numpy" 2>/dev/null || { echo "numpy is present; this job needs it absent"; exit 1; }
+          set +e
+          out=$(make demo-dry 2>&1)
+          code=$?
+          set -e
+          echo "$out"
+          echo "exit $code"
+          test "$code" -ne 0
+          echo "$out" | grep -qx 'run: pip install -r requirements.txt'
+          if echo "$out" | grep -q Traceback; then echo "a traceback leaked"; exit 1; fi
+          test ! -e examples/hello-table/out

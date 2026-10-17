@@ -20,8 +20,10 @@ What makes it different from a pile of API scripts is the discipline built into 
 
 ```bash
 git clone https://github.com/dfeirstein/fleet-video-lab && cd fleet-video-lab
+python3 -m venv .venv && . .venv/bin/activate   # optional, keeps numpy out of your system Python
+pip install -r requirements.txt   # numpy, for the proof step (make demo-dry stops with this line if it is missing)
 python3 tools/doctor.py        # what you have, what is missing, where to set it
-make demo-dry                  # the sample film end to end: no keys, no spend (needs python3 + ffmpeg)
+make demo-dry                  # the sample film end to end: no keys, no spend (needs python3 + numpy + ffmpeg)
 ```
 
 `make demo-dry` builds `examples/hello-table/` (a 10 s film: two shots, two type cards, music, one VO line, one

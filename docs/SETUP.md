@@ -9,7 +9,7 @@ where to set it. It always exits 0 in report mode; `--strict` exits 1 when somet
 |---|---|---|---|
 | python3 >= 3.10 | every tool | python.org / package manager | PATH |
 | ffmpeg + ffprobe (with drawtext) | everything after generation | `brew install ffmpeg` / `apt-get install ffmpeg` | PATH, or `FFMPEG` / `FFPROBE` |
-| numpy (optional) | `vo_segments.py`, `audio_profile.py`, `fine_profile.py` | `pip install -r requirements.txt` | your Python env |
+| Python deps (numpy) | `vo_segments.py`, `audio_profile.py`, `fine_profile.py` (the proof step of every demo) | `pip install -r requirements.txt` | the python3 that runs make (PATH or `PY=`; a venv is fine) |
 | Higgsfield CLI, logged in | Seedance 2.5 takes (`hf_shot.py`) | see below | PATH, or `HIGGSFIELD`; login via `higgsfield auth login` |
 | `ELEVENLABS_API_KEY` | music, VO, SFX (`eleven.py`) | elevenlabs.io, Developers, API keys | env var |
 | `OPENAI_API_KEY` (or the gpt-image MCP) | start stills (`gpt_image.py`) | platform.openai.com, API keys | env var |
@@ -17,7 +17,8 @@ where to set it. It always exits 0 in report mode; `--strict` exits 1 when somet
 | Hyperframes CLI | the final render | runs via `npx hyperframes@0.8.169` | nothing to set |
 | Chrome or Chromium (optional) | `capture.mjs` proofs | google.com/chrome | `CHROME` |
 
-Only python3 and ffmpeg are needed for `make demo-dry`.
+Only python3, numpy (`pip install -r requirements.txt`) and ffmpeg are needed for `make demo-dry`. Without numpy it
+stops before doing anything, with one line: `run: pip install -r requirements.txt`.
 
 ## Keys: environment variables only
 
@@ -50,8 +51,10 @@ Re-resolve these before trusting them: they were true on 2026-10-17. Seedance pr
 ## First run
 
 ```bash
+python3 -m venv .venv && . .venv/bin/activate   # optional, keeps numpy out of your system Python
+pip install -r requirements.txt    # numpy, for the proof step
 python3 tools/doctor.py            # what is missing
-make demo-dry                      # the whole pipeline, no keys, no spend (python3 + ffmpeg only)
+make demo-dry                      # the whole pipeline, no keys, no spend (python3 + numpy + ffmpeg)
 npx hyperframes@0.8.169 lint examples/hello-table    # optional: the composition the demo wrote is valid
 make render                        # optional: render it with Hyperframes on the placeholders (Node + Chrome)
 VOICE_ID=<your ElevenLabs voice id> make demo        # the real sample film: quotes first, cap 200 credits

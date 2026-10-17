@@ -55,9 +55,9 @@ def checks(offline):
         import numpy  # noqa: F401
         np_status, np_found = "ok", numpy.__version__
     except ImportError:
-        np_status, np_found = "optional", "not installed"
-    yield ("numpy (vo_segments, audio_profile, fine_profile)", np_status, np_found, "pip install -r requirements.txt",
-           "your Python environment", False)
+        np_status, np_found = "MISSING", "not installed"
+    yield ("Python deps (numpy)", np_status, np_found, "pip install -r requirements.txt",
+           "the python3 that runs make (PATH or PY=/path/to/python3; a venv is fine)", True)
 
     hf = shutil.which(os.environ.get("HIGGSFIELD") or "higgsfield")
     yield ("Higgsfield CLI (Seedance 2.5)", "ok" if hf else "MISSING",
@@ -115,7 +115,7 @@ def main():
     print()
     if missing:
         print(f"{len(missing)} missing for a real film: " + "; ".join(missing))
-        print("The keyless sample still runs: make demo-dry (needs python3 + ffmpeg only). See docs/SETUP.md.")
+        print("The keyless sample still runs: make demo-dry (needs python3 + numpy + ffmpeg). See docs/SETUP.md.")
     else:
         print("everything a real film needs is present. Next: make demo (spends credits; it quotes first).")
     sys.exit(1 if a.strict and missing else 0)

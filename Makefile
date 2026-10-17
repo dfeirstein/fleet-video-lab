@@ -12,15 +12,19 @@ BPM := 120
 END := 10
 DRY ?=
 
-.PHONY: doctor demo-dry demo generate cut proof render lint scan clean-demo
+.PHONY: doctor deps demo-dry demo generate cut proof render lint scan clean-demo
 
 doctor:
 	$(PY) tools/doctor.py
 
-demo-dry:
+# Python deps (numpy, for the proof step) are checked before anything runs: one line, never a traceback.
+deps:
+	@$(PY) -c "import numpy" 2>/dev/null || { echo "run: pip install -r requirements.txt"; exit 1; }
+
+demo-dry: deps
 	$(MAKE) generate cut proof DRY=--dry-run VOICE_ID=placeholder
 
-demo:
+demo: deps
 	@test -n "$(VOICE_ID)" || { echo "set VOICE_ID (an ElevenLabs voice id; list yours with GET https://api.elevenlabs.io/v1/voices)"; exit 1; }
 	$(PY) tools/doctor.py --strict
 	$(MAKE) generate DRY= VOICE_ID=$(VOICE_ID)
