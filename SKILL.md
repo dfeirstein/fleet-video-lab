@@ -18,6 +18,11 @@ done. Tools live in `tools/`; the method is `docs/METHOD.md`; setup is `docs/SET
 - A cut exists and needs mastering, proof frames, a loudness check, or a critic pass.
 - Not for: editing real camera footage at length, or a single still image (use an image tool directly).
 
+## Install
+- `npx skills add dfeirstein/fleet-video-lab -g` (Claude Code, so every Fleet worker on the machine).
+- Or `git clone https://github.com/dfeirstein/fleet-video-lab ~/.claude/skills/fleet-video-lab`.
+- Then `python3 tools/doctor.py` from the skill folder and add the keys it lists (`docs/SETUP.md`).
+
 ## Before anything
 1. `python3 tools/doctor.py` and read it. Missing keys: ask for them (Fleet: `fleet-ctl secret request <NAME> --dest env`).
 2. `make demo-dry` once on a new machine: the whole pipeline with placeholders, no keys, no spend.

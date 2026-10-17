@@ -16,6 +16,16 @@ What makes it different from a pile of API scripts is the discipline built into 
 - "done" means **proof**: an ffprobe line, a 10 ms tail check, frames on every cut, a SPEND.md, and a verdict from a
   judge who is not the maker ([docs/METHOD.md](docs/METHOD.md)).
 
+## Install as a skill
+
+```bash
+npx skills add dfeirstein/fleet-video-lab -g   # finds the root SKILL.md; -g = user-wide, omit for this project only
+```
+
+That installs it for Claude Code (linked into `~/.claude/skills/`), so every Fleet worker on the machine can load
+it. Or by hand: `git clone https://github.com/dfeirstein/fleet-video-lab ~/.claude/skills/fleet-video-lab`.
+Then run `python3 tools/doctor.py` from the skill folder and add the keys it lists ([docs/SETUP.md](docs/SETUP.md)).
+
 ## 5-minute start
 
 ```bash
