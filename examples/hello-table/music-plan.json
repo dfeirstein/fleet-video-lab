@@ -1,0 +1,25 @@
+{
+  "chunks": [
+    {
+      "text": "[Intro]",
+      "duration_ms": 2000,
+      "positive_styles": ["soft brushed drums", "upright bass", "120 BPM", "warm and quiet", "instrumental"],
+      "negative_styles": ["vocals", "synth pads", "EDM", "orchestral"],
+      "context_adherence": "high"
+    },
+    {
+      "text": "[Groove]",
+      "duration_ms": 6000,
+      "positive_styles": ["brushed snare on 2 and 4", "walking upright bass", "felt piano chords", "120 BPM", "instrumental"],
+      "negative_styles": ["vocals", "synth pads", "EDM"],
+      "context_adherence": "high"
+    },
+    {
+      "text": "[Outro]",
+      "duration_ms": 3000,
+      "positive_styles": ["one held piano chord resolving", "bass note ringing out", "120 BPM", "instrumental"],
+      "negative_styles": ["vocals", "fade to silence before the end"],
+      "context_adherence": "high"
+    }
+  ]
+}
