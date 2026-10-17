@@ -35,7 +35,9 @@ jobs:
       # report mode on a keyless runner: must exit 0 and print the full table
       - run: python3 tools/doctor.py --offline
       - name: every tool answers --help without keys
-        run: for f in tools/*.py; do python3 "$f" --help > /dev/null || { echo "--help failed: $f"; exit 1; }; done
+        run: |
+          for f in tools/*.py; do python3 "$f" --help > /dev/null || { echo "--help failed: $f"; exit 1; }; done
+          node tools/capture.mjs --help
       - name: a missing key fails with one 'set NAME' line
         run: |
           out=$(python3 tools/eleven.py sfx x 1 a.mp3 2>&1 || true)
