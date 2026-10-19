@@ -1,9 +1,10 @@
 """Proof frames: one labelled frame just after every cut, a contact sheet, dense strips, and the true last frame.
 
 usage: python3 tools/frames.py <video> <out_dir> [--edit edit.json | --cuts 0,1.5,3 | --every 1.0]
-                               [--dense a-b ...] [--fps 12] [--after 0.2]
+                               [--dense a-b ...] [--fps 12] [--after 0.2] [--poster t]
   --edit reads the cut times from a build_comp.py edit list (beats x 60/bpm), so the frames sit on the real cut.
-Writes <out_dir>/NN-<t>s.png, contact-sheet.png (6 columns), dense-<a>-<b>.png per --dense window, last-frame.png.
+Writes <out_dir>/NN-<t>s.png, contact-sheet.png (6 columns), dense-<a>-<b>.png per --dense window, first-frame.png,
+last-frame.png, and poster.png (the frame at --poster seconds) when asked.
 Frame n of an `f%03d` sequence is file n+1; this tool names files by TIME to avoid that off-by-one.
 """
 import argparse
@@ -28,6 +29,7 @@ def main():
     ap.add_argument("--fps", type=int, default=12, help="dense strip rate")
     ap.add_argument("--after", type=float, default=0.2, help="sample this long after each cut")
     ap.add_argument("--vertical", action="store_true", help="9:16 tiles")
+    ap.add_argument("--poster", type=float, default=None, help="write poster.png: the full-size frame at this time")
     a = ap.parse_args()
     tw, th = (TH, TW) if a.vertical else (TW, TH)
     end = duration(a.src) - 0.05
@@ -70,6 +72,10 @@ def main():
              f"setpts=PTS+{s}/TB,fps={a.fps},scale={tw * 2 // 3}:{th * 2 // 3},"
              f"drawtext=text='%{{pts\\:flt}}':x=4:y=4:fontsize=18:fontcolor=white:box=1:boxcolor=black,"
              f"tile=8x{max(1, -(-n // 8))}", "-frames:v", "1", os.path.join(a.out, f"dense-{s:05.2f}-{e:05.2f}.png")])
+    run([ffmpeg(), "-v", "error", "-y", "-i", a.src, "-frames:v", "1", os.path.join(a.out, "first-frame.png")])
+    if a.poster is not None:
+        run([ffmpeg(), "-v", "error", "-y", "-ss", str(a.poster), "-i", a.src, "-frames:v", "1",
+             os.path.join(a.out, "poster.png")])
     # the true last frame: -ss near the end with -update 1 (an -sseof grab can leave a stale PNG)
     run([ffmpeg(), "-v", "error", "-y", "-ss", str(max(0, end - 0.1)), "-i", a.src, "-update", "1",
          os.path.join(a.out, "last-frame.png")])

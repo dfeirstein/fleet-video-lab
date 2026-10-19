@@ -17,5 +17,15 @@
     {"id": "music", "src": "audio/music.mp3", "at": 0.0, "volume": 0.8},
     {"id": "vo1", "src": "audio/vo-1.mp3", "at": 0.5, "volume": 1.0},
     {"id": "sfx-tap", "src": "audio/sfx-tap.mp3", "at": 4.0, "volume": 0.7}
-  ]
+  ],
+  "deliverables": {
+    "render": ["out/render.mp4", "out/render.mov"],
+    "formats": [
+      {"name": "wide", "width": 1280, "height": 720, "max_bytes": 20000000, "final": "out/final.mp4",
+       "poster": "frames/poster.png", "first_frame": "frames/first-frame.png", "last_frame": "frames/last-frame.png",
+       "contact_sheet": "frames/contact-sheet.png"}
+    ],
+    "spend": "SPEND.md",
+    "verdict": {"path": "VERDICT.md", "allowed": ["PASSES", "PASSES WITH FIXES"]}
+  }
 }

@@ -41,6 +41,7 @@ Make a project folder (copy `examples/hello-table/`), then:
 | 6. Master | -14 LUFS, true peak < -1 dBTP, real sound to the last sample | `master.py <render> out/final.mp4 <content_end_s>` |
 | 7. Proof | ffprobe line, 10 ms tail windows PASS, frames on every cut, section levels, SPEND.md | `audio_windows.py ... 0 0.01`, `frames.py --edit`, `score_level.py`, `spend_report.py` |
 | 8. Critic | a SEPARATE read-only judge writes a verdict file; the maker answers every finding by id | `docs/METHOD.md` section 4 |
+| 9. Done | every deliverable in `edit.json`'s `deliverables` block, gate by gate: brief, shots, still board, takes, render, master, proof frames, spend, verdict; it names the first one missing | `donecheck.py --project P` |
 
 ## Commands
 ```bash
@@ -55,6 +56,7 @@ python3 tools/master.py P/out/render.mp4 P/out/final.mp4 <content_end_s>
 python3 tools/audio_windows.py P/out/final.mp4 0 0.01
 python3 tools/frames.py P/out/final.mp4 P/frames --edit P/edit.json [--dense 12-16]
 python3 tools/spend_report.py --project P --cap 1000 --used V01,V02
+python3 tools/donecheck.py --project P                # done = 'donecheck: all gates met', exit 0
 node tools/capture.mjs page.html out.png 1920 1080    # 1:1 proof of a card or page
 bash tools/scan_private.sh                            # before every push
 ```

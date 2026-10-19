@@ -3,6 +3,8 @@
 #   make demo-dry   the whole pipeline with NO keys and NO spend: ffmpeg placeholders stand in for every generation
 #   make demo       the real thing (quotes first; cap 200 credits). Needs doctor all-ok and VOICE_ID set.
 #   make render     render the Hyperframes composition (index.html) the demo wrote
+#   make donecheck  every deliverable in edit.json, gate by gate; names the first one missing
+#   make test       the unit tests (after make demo-dry)
 #   make lint scan  ruff, and the privacy scan
 PY ?= python3
 P ?= examples/hello-table
@@ -12,7 +14,7 @@ BPM := 120
 END := 10
 DRY ?=
 
-.PHONY: doctor deps demo-dry demo generate cut proof render lint scan clean-demo
+.PHONY: doctor deps demo-dry demo generate cut proof render donecheck test lint scan clean-demo
 
 doctor:
 	$(PY) tools/doctor.py
@@ -23,6 +25,9 @@ deps:
 
 demo-dry: deps
 	$(MAKE) generate cut proof DRY=--dry-run VOICE_ID=placeholder
+	@# no judge runs on placeholders: a stand-in verdict, so the done-check can walk every gate
+	printf 'PASSES WITH FIXES\n\nDry run: placeholder footage, no judge ran. A real film needs a separate judge here.\n' > $(P)/VERDICT.md
+	$(MAKE) donecheck
 
 demo: deps
 	@test -n "$(VOICE_ID)" || { echo "set VOICE_ID (an ElevenLabs voice id; list yours with GET https://api.elevenlabs.io/v1/voices)"; exit 1; }
@@ -54,7 +59,7 @@ render:
 proof:
 	ffprobe -v error -show_entries format=duration:stream=codec_name,width,height,r_frame_rate -of compact $(P)/out/final.mp4
 	$(PY) tools/audio_windows.py $(P)/out/final.mp4 0 0.01 --quiet
-	$(PY) tools/frames.py $(P)/out/final.mp4 $(P)/frames --edit $(P)/edit.json --dense 3.5-5.5
+	$(PY) tools/frames.py $(P)/out/final.mp4 $(P)/frames --edit $(P)/edit.json --dense 3.5-5.5 --poster 9
 	$(PY) tools/beat_grid.py $(P)/audio/music.mp3 $(BPM) --beats 8
 	$(PY) tools/onsets.py $(P)/audio/music.mp3 $(BPM) 0 3
 	$(PY) tools/vo_segments.py $(P)/audio/vo-1.mp3
@@ -64,8 +69,15 @@ proof:
 	$(PY) tools/score_level.py $(P)/out/final.mp4 --window 0-5 --window 5-10
 	$(PY) tools/spend_report.py --project $(P) --cap $(CAP) --used V01,V02 --title "Hello, Table"
 
+# done means this passes, never that the last command exited 0
+donecheck:
+	$(PY) tools/donecheck.py --project $(P)
+
+test:
+	$(PY) -m unittest discover -s tests -v
+
 lint:
-	ruff check tools
+	ruff check tools tests
 	bash -n tools/scan_private.sh tools/local/keychain_env.sh
 
 scan:

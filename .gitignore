@@ -15,6 +15,7 @@ snapshots/
 # the composition build_comp.py writes into a project
 examples/*/index.html
 examples/*/SPEND.md
+examples/*/VERDICT.md
 # keys and local junk
 .env
 .env.*

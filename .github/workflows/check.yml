@@ -60,6 +60,10 @@ jobs:
           . .venv/bin/activate
           pip install -r requirements.txt
           make demo-dry
+      - name: done-check unit test on the demo output
+        run: |
+          . .venv/bin/activate
+          make test
       - name: proof files exist
         run: ls -la examples/hello-table/out/final.mp4 examples/hello-table/frames/contact-sheet.png examples/hello-table/SPEND.md examples/hello-table/index.html
       - name: the run leaves the tree clean

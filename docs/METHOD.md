@@ -61,6 +61,12 @@ A claim about the film is either measured or marked `unverified:`.
    rejected (with evidence). Re-rolls are judged against the cut's timing, not only on looks.
 5. Repeat until the judge passes it or the budget stops it.
 
+**Done means `tools/donecheck.py --project <dir>` prints `donecheck: all gates met`,** never that the last command
+exited 0. A render can exit 0 with the wrong size, a missing poster or no verdict. The project's `edit.json` lists
+its deliverables (per format: the final at its width, height and maximum size, a poster, first and last frames, a
+contact sheet; then SPEND.md and the verdict file, whose line 1 must be `PASSES` or `PASSES WITH FIXES`), and the
+done-check walks them in gate order and names the first one missing, so a round resumes from that gate.
+
 ### A neutral rubric for the judge
 
 | Area | Ask |
