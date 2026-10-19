@@ -16,6 +16,7 @@ snapshots/
 examples/*/index.html
 examples/*/SPEND.md
 examples/*/VERDICT.md
+examples/*/VERDICT.dry-run.md
 # keys and local junk
 .env
 .env.*

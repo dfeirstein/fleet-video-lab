@@ -3,7 +3,7 @@
 #   make demo-dry   the whole pipeline with NO keys and NO spend: ffmpeg placeholders stand in for every generation
 #   make demo       the real thing (quotes first; cap 200 credits). Needs doctor all-ok and VOICE_ID set.
 #   make render     render the Hyperframes composition (index.html) the demo wrote
-#   make donecheck  every deliverable in edit.json, gate by gate; names the first one missing
+#   make donecheck  every deliverable in edit.json, gate by gate; names the first one missing (VERDICT=<file> to override)
 #   make test       the unit tests (after make demo-dry)
 #   make lint scan  ruff, and the privacy scan
 PY ?= python3
@@ -25,9 +25,10 @@ deps:
 
 demo-dry: deps
 	$(MAKE) generate cut proof DRY=--dry-run VOICE_ID=placeholder
-	@# no judge runs on placeholders: a stand-in verdict, so the done-check can walk every gate
-	printf 'PASSES WITH FIXES\n\nDry run: placeholder footage, no judge ran. A real film needs a separate judge here.\n' > $(P)/VERDICT.md
-	$(MAKE) donecheck
+	@# no judge runs on placeholders: a stand-in verdict in its own file, so the done-check can walk every gate
+	@# without ever writing or reading the project's real VERDICT.md
+	printf 'PASSES WITH FIXES\n\nDry run: placeholder footage, no judge ran. A real film needs a separate judge in VERDICT.md.\n' > "$(P)/VERDICT.dry-run.md"
+	$(MAKE) donecheck P="$(P)" VERDICT="$(P)/VERDICT.dry-run.md"
 
 demo: deps
 	@test -n "$(VOICE_ID)" || { echo "set VOICE_ID (an ElevenLabs voice id; list yours with GET https://api.elevenlabs.io/v1/voices)"; exit 1; }
@@ -70,8 +71,10 @@ proof:
 	$(PY) tools/spend_report.py --project $(P) --cap $(CAP) --used V01,V02 --title "Hello, Table"
 
 # done means this passes, never that the last command exited 0
+# VERDICT= reads that verdict file instead of the one edit.json names
+VERDICT ?=
 donecheck:
-	$(PY) tools/donecheck.py --project $(P)
+	$(PY) tools/donecheck.py --project "$(P)" $(if $(VERDICT),--verdict "$(VERDICT)")
 
 test:
 	$(PY) -m unittest discover -s tests -v
