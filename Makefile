@@ -13,7 +13,8 @@ BPM := 120
 END := 10
 DRY ?=
 
-.PHONY: doctor deps demo-dry demo generate cut proof still-board render lint scan clean-demo
+.PHONY: doctor deps demo-dry dry-generate dry-cut dry-proof dry-board demo generate cut proof still-board render lint scan \
+	clean-demo
 
 doctor:
 	$(PY) tools/doctor.py
@@ -23,7 +24,17 @@ deps:
 	@$(PY) -c "import numpy" 2>/dev/null || { echo "run: pip install -r requirements.txt"; exit 1; }
 
 demo-dry: deps
-	$(MAKE) generate cut proof still-board DRY=--dry-run VOICE_ID=placeholder
+	$(MAKE) dry-board DRY=--dry-run VOICE_ID=placeholder
+
+# the dry steps as a prerequisite chain (generate, cut, proof, then the board), so make -j cannot reorder them
+dry-generate:
+	$(MAKE) generate
+dry-cut: dry-generate
+	$(MAKE) cut
+dry-proof: dry-cut
+	$(MAKE) proof
+dry-board: dry-proof
+	$(MAKE) still-board
 
 demo: deps
 	@test -n "$(VOICE_ID)" || { echo "set VOICE_ID (an ElevenLabs voice id; list yours with GET https://api.elevenlabs.io/v1/voices)"; exit 1; }
@@ -66,9 +77,9 @@ proof:
 	$(PY) tools/spend_report.py --project $(P) --cap $(CAP) --used V01,V02 --title "Hello, Table"
 
 # the still board: every start still and each kept take's first/last frame, checked against the locked table in
-# SHOTS.md before any take is paid for. Runs after proof: frames.py clears the PNGs in frames/.
+# SHOTS.md before any take is paid for. --takes is passed only once the takes folder exists (a fresh project has none).
 still-board:
-	$(PY) tools/still_board.py $(P)/stills $(P)/frames/still-board.png --takes $(P)/takes/video
+	$(PY) tools/still_board.py $(P)/stills $(P)/frames/still-board.png $(if $(wildcard $(P)/takes/video),--takes $(P)/takes/video)
 
 lint:
 	ruff check tools

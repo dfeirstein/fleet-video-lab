@@ -71,9 +71,14 @@ A claim about the film is either measured or marked `unverified:`.
    three findings, by id, that most hurt the film.
 4. **Repair is bounded.** In the next round the maker fixes the Top 3 plus any regression the verdict names, and
    nothing else: touch only the sections of the cut those findings name, and re-render proof only around them
-   (`tools/frames.py <master> frames --dense <t-1>-<t+1>` for a finding at time t). The maker still answers every
-   finding by id in the round's table: fixed (how, where), accepted (why), rejected (with evidence), or deferred
-   (not in this round's Top 3). Re-rolls are judged against the cut's timing, not only on looks.
+   (`tools/frames.py <master> frames --dense-only --dense <t-1>-<t+1>` for a finding at time t: it writes just
+   that strip and leaves every other file in `frames/`, the still board included). The Top 3 is the must-fix set,
+   not the whole verdict: the maker answers every finding by id (fixed, accepted, rejected, or deferred), and
+   hands the deferred and residual findings to the person as a list. In the round's table that is: fixed (how,
+   where), accepted (why), rejected (with evidence), or deferred (not in this round's Top 3). Each repair goes
+   back to the step that made the defect and passes that step's gate again: identity or physical defects to stills
+   (step 4) or takes (step 5), composition defects to the cut (step 6). (Steps are the rows of SKILL.md's workflow
+   table.) Re-rolls are judged against the cut's timing, not only on looks.
 5. **Stop rule.** Stop when a verdict has no HIGH finding, or at the round cap stated in the brief (default 4
    rounds), or when the budget stops it. Hand whatever is left to the person as a list, not another round.
 

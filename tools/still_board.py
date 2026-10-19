@@ -4,30 +4,93 @@ usage: python3 tools/still_board.py <stills_dir> <out.png> [--takes <dir>] [--co
 Every recurring subject (person, vehicle, object, set) is then visible side by side, so the board can be checked
 against the locked-attributes table in SHOTS.md before run_batch.py spends a credit on a take.
 Cells are the stills (*.png, *.jpg) in name order, then for each *.mp4 in --takes its first and last frame; the
-file name sits under each cell. Pure ffmpeg; nothing is generated, nothing is spent.
+file name sits under each cell (middle-ellipsized to fit). A missing or empty --takes folder is noted and skipped,
+so the board works on a fresh project. Any entry that is not a regular file ffprobe reads as an image or video is
+skipped with a note; one bad file never stops the board. Pure ffmpeg; nothing is generated, nothing is spent.
 """
 import argparse
 import os
+import subprocess
 import sys
 import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _common import duration, ensure_dir, ffmpeg, run  # noqa: E402
+from _common import ensure_dir, ffmpeg, ffprobe, run  # noqa: E402
 
 TW, TH, LH = 480, 270, 36
+FONT = 20
+ROOM = TW - 20  # label width in px: a 10 px margin each side
 
 
-def cell(src, label, out, tmp, ss=None):
-    """One tile: the frame fitted into TW x TH on black, the label in a strip under it."""
+def width(s):
+    """A safe upper bound on the drawn width of s in px: capitals and m/w at a full em, the rest at 0.62 em."""
+    return sum(FONT * (1.0 if c.isupper() or c in "mwMW@%" else 0.62) for c in s)
+
+
+def fit(name, suffix=""):
+    """The label for a cell: name + suffix, middle-ellipsized to ROOM px so the end of the name (its extension)
+    and the suffix always show."""
+    if width(name + suffix) <= ROOM:
+        return name + suffix
+    head, tail = name[: len(name) // 2], name[len(name) // 2:]
+    while width(head + "..." + tail + suffix) > ROOM and (head or tail):
+        if len(head) >= len(tail) - 4 and head:
+            head = head[:-1]
+        else:
+            tail = tail[1:]
+    return head + "..." + tail + suffix
+
+
+def probe(path):
+    """True when path is a regular file ffprobe reads a video stream from (stills decode as one-frame video)."""
+    if not os.path.isfile(path):
+        return False
+    r = subprocess.run([ffprobe(), "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=codec_type",
+                        "-of", "csv=p=0", path], capture_output=True, text=True)
+    return r.returncode == 0 and r.stdout.strip() == "video"
+
+
+def last_index(src):
+    """Index of the last video frame: the packet count from ffprobe, else nb_frames, else duration x fps."""
+    r = run([ffprobe(), "-v", "error", "-select_streams", "v:0", "-count_packets", "-show_entries",
+             "stream=nb_read_packets,nb_frames,avg_frame_rate:format=duration", "-of", "default=nw=1", src]).stdout
+    v = dict(line.split("=", 1) for line in r.split() if "=" in line)
+    for k in ("nb_read_packets", "nb_frames"):
+        if v.get(k, "N/A").isdigit() and int(v[k]) > 0:
+            return int(v[k]) - 1
+    num, _, den = v.get("avg_frame_rate", "24/1").partition("/")
+    return max(0, round(float(v["duration"]) * float(num) / float(den or 1)) - 1)
+
+
+def cell(src, label, out, tmp, n=None):
+    """One tile: frame n (default the first) fitted into TW x TH on black, the label in a strip under it.
+    Returns out, or None (with a note) when ffmpeg cannot make it."""
     txt = os.path.join(tmp, os.path.basename(out) + ".txt")
     with open(txt, "w") as f:
         f.write(label)
-    seek = ["-ss", str(ss)] if ss is not None else []
-    run([ffmpeg(), "-v", "error", "-y", *seek, "-i", src, "-frames:v", "1", "-update", "1", "-vf",
-         f"scale={TW}:{TH}:force_original_aspect_ratio=decrease,pad={TW}:{TH + LH}:(ow-iw)/2:(oh-{LH}-ih)/2:black,"
-         f"drawtext=textfile='{txt}':expansion=none:x=10:y={TH + 8}:fontsize=20:fontcolor=white",
-         out])
+    pick = f"select=eq(n\\,{n})," if n else ""
+    r = subprocess.run([ffmpeg(), "-v", "error", "-y", "-i", src, "-frames:v", "1", "-update", "1", "-vf",
+                        f"{pick}scale={TW}:{TH}:force_original_aspect_ratio=decrease,"
+                        f"pad={TW}:{TH + LH}:(ow-iw)/2:(oh-{LH}-ih)/2:black,"
+                        f"drawtext=textfile='{txt}':expansion=none:x=10:y={TH + 8}:fontsize={FONT}:fontcolor=white",
+                        out], capture_output=True, text=True)
+    if r.returncode or not os.path.isfile(out):
+        print(f"skip {src}: ffmpeg could not make a cell ({r.stderr.strip()[-200:]})", file=sys.stderr)
+        return None
     return out
+
+
+def entries(folder, exts, kind):
+    """The files in folder with one of exts, in name order, that probe() accepts; each other match is noted."""
+    keep = []
+    for f in sorted(os.listdir(folder)):
+        if not f.lower().endswith(exts):
+            continue
+        if probe(os.path.join(folder, f)):
+            keep.append(f)
+        else:
+            print(f"skip {os.path.join(folder, f)}: not a readable {kind} file", file=sys.stderr)
+    return keep
 
 
 def main():
@@ -37,20 +100,26 @@ def main():
     ap.add_argument("--takes", default=None, help="a folder of kept takes (*.mp4): adds each one's first and last frame")
     ap.add_argument("--cols", type=int, default=4)
     a = ap.parse_args()
-    stills = sorted(f for f in os.listdir(a.stills) if f.lower().endswith((".png", ".jpg", ".jpeg")))
-    takes = sorted(f for f in os.listdir(a.takes) if f.lower().endswith(".mp4")) if a.takes else []
+    stills = entries(a.stills, (".png", ".jpg", ".jpeg"), "image") if os.path.isdir(a.stills) else []
+    takes = []
+    if a.takes and os.path.isdir(a.takes):
+        takes = entries(a.takes, (".mp4",), "video")
+    if a.takes and not takes:
+        print(f"note: no takes in {a.takes}; the board shows the stills only")
     if not stills and not takes:
         sys.exit(f"no stills in {a.stills}{' and no takes in ' + a.takes if a.takes else ''}")
     ensure_dir(os.path.dirname(os.path.abspath(a.out)))
     with tempfile.TemporaryDirectory() as tmp:
-        tiles = [cell(os.path.join(a.stills, s), s, os.path.join(tmp, f"s{i:03d}.png"), tmp)
+        tiles = [cell(os.path.join(a.stills, s), fit(s), os.path.join(tmp, f"s{i:03d}.png"), tmp)
                  for i, s in enumerate(stills)]
+        stills = [s for s, p in zip(stills, tiles) if p]
         for i, t in enumerate(takes):
             src = os.path.join(a.takes, t)
-            # the last frame: -ss near the end with -update 1 (an -sseof grab can leave a stale PNG)
-            last = max(0.0, duration(src) - 0.1)
-            tiles.append(cell(src, f"{t} first", os.path.join(tmp, f"t{i:03d}a.png"), tmp, 0))
-            tiles.append(cell(src, f"{t} last", os.path.join(tmp, f"t{i:03d}b.png"), tmp, round(last, 3)))
+            tiles.append(cell(src, fit(t, " first"), os.path.join(tmp, f"t{i:03d}a.png"), tmp))
+            tiles.append(cell(src, fit(t, " last"), os.path.join(tmp, f"t{i:03d}b.png"), tmp, last_index(src)))
+        tiles = [p for p in tiles if p]
+        if not tiles:
+            sys.exit("no cell could be made; see the skip notes above")
         cols = max(1, min(a.cols, len(tiles)))
         rows = -(-len(tiles) // cols)
         if len(tiles) == 1:
