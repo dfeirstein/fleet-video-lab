@@ -3,6 +3,7 @@
 #   make demo-dry   the whole pipeline with NO keys and NO spend: ffmpeg placeholders stand in for every generation
 #   make demo       the real thing (quotes first; cap 200 credits). Needs doctor all-ok and VOICE_ID set.
 #   make render     render the Hyperframes composition (index.html) the demo wrote
+#   make still-board  the start stills and each take's first/last frame in one labelled grid
 #   make lint scan  ruff, and the privacy scan
 PY ?= python3
 P ?= examples/hello-table
@@ -12,7 +13,7 @@ BPM := 120
 END := 10
 DRY ?=
 
-.PHONY: doctor deps demo-dry demo generate cut proof render lint scan clean-demo
+.PHONY: doctor deps demo-dry demo generate cut proof still-board render lint scan clean-demo
 
 doctor:
 	$(PY) tools/doctor.py
@@ -22,7 +23,7 @@ deps:
 	@$(PY) -c "import numpy" 2>/dev/null || { echo "run: pip install -r requirements.txt"; exit 1; }
 
 demo-dry: deps
-	$(MAKE) generate cut proof DRY=--dry-run VOICE_ID=placeholder
+	$(MAKE) generate cut proof still-board DRY=--dry-run VOICE_ID=placeholder
 
 demo: deps
 	@test -n "$(VOICE_ID)" || { echo "set VOICE_ID (an ElevenLabs voice id; list yours with GET https://api.elevenlabs.io/v1/voices)"; exit 1; }
@@ -63,6 +64,11 @@ proof:
 	$(PY) tools/peaks.py $(P)/takes/video/V01.mp4 0 2 2 2
 	$(PY) tools/score_level.py $(P)/out/final.mp4 --window 0-5 --window 5-10
 	$(PY) tools/spend_report.py --project $(P) --cap $(CAP) --used V01,V02 --title "Hello, Table"
+
+# the still board: every start still and each kept take's first/last frame, checked against the locked table in
+# SHOTS.md before any take is paid for. Runs after proof: frames.py clears the PNGs in frames/.
+still-board:
+	$(PY) tools/still_board.py $(P)/stills $(P)/frames/still-board.png --takes $(P)/takes/video
 
 lint:
 	ruff check tools

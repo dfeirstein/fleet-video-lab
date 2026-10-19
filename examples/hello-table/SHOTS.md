@@ -4,6 +4,30 @@ House look for every generated frame: a bare oak table, one plain white ceramic 
 frame left, warm neutral palette, 35 mm film grain, shallow depth of field. Universal negatives: no people, no hands,
 no text in picture, no logos, no camera drift, no lens flares.
 
+## Locked attributes
+
+Checked on the still board (`frames/still-board.png`) before any take, and on both sides of every cut after.
+
+### The cup (object)
+
+| Attribute | Locked value | Check on |
+|---|---|---|
+| Body | one plain white ceramic cup, matte glaze, no pattern | s01, s02, V01 and V02 first/last |
+| Handle | a single loop handle, pointing frame right | s01, s02, V01 and V02 first/last |
+| Contents | black coffee, filled to about a finger below the rim | s01, V01 first/last |
+| Count | exactly one cup; no saucer, no spoon | every cell |
+
+### The table (set)
+
+| Attribute | Locked value | Check on |
+|---|---|---|
+| Surface | bare light oak, grain running left to right, no cloth | every cell |
+| Contents | the cup and nothing else | every cell |
+| Light | soft morning window light from frame left, warm neutral | every cell |
+
+DO NOT COPY: no reference image is used for this film. When a film uses one, name here what must not be lifted
+from it (its subjects, logos, copy, people), and keep only the analysed look.
+
 ## Stills (GPT image, `tools/gpt_image.py`, 1536x1024)
 
 | Still | Prompt |

@@ -61,7 +61,7 @@ jobs:
           pip install -r requirements.txt
           make demo-dry
       - name: proof files exist
-        run: ls -la examples/hello-table/out/final.mp4 examples/hello-table/frames/contact-sheet.png examples/hello-table/SPEND.md examples/hello-table/index.html
+        run: ls -la examples/hello-table/out/final.mp4 examples/hello-table/frames/contact-sheet.png examples/hello-table/frames/still-board.png examples/hello-table/SPEND.md examples/hello-table/index.html
       - name: the run leaves the tree clean
         run: |
           git status --porcelain
