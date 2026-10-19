@@ -51,6 +51,31 @@ class Stillness(unittest.TestCase):
         self.assertIn("need at least 2", str(cm.exception.code))
 
 
+class StillOptions(unittest.TestCase):
+    def refused(self, flag, value):
+        r = subprocess.run([sys.executable, os.path.join(TOOLS, "frames.py"), "x.mp4", "out", "--stillness", f"{flag}={value}"],
+                           capture_output=True, text=True)
+        # flag=value, so argparse reads -inf as a value, not an option
+        self.assertEqual(r.returncode, 2, r.stderr)  # argparse refuses before any ffmpeg call
+        self.assertIn(f"argument {flag}", r.stderr)
+        return r.stderr
+
+    def test_non_finite_values_are_refused(self):
+        for flag in ("--still-seconds", "--still-ydif"):
+            for v in ("nan", "inf", "-inf"):
+                self.assertIn("must be a finite number greater than 0", self.refused(flag, v), (flag, v))
+
+    def test_zero_negative_and_non_numbers_are_refused(self):
+        for flag in ("--still-seconds", "--still-ydif"):
+            self.assertIn("greater than 0", self.refused(flag, "0"))
+            self.assertIn("greater than 0", self.refused(flag, "-1"))
+            self.assertIn("is not a number", self.refused(flag, "soon"))
+
+    def test_finite_positive_values_pass(self):
+        self.assertEqual(frames.positive_finite("1.5"), 1.5)
+        self.assertEqual(frames.positive_finite("0.5"), 0.5)
+
+
 class Own(unittest.TestCase):
     def test_own_names_match_index_100_and_up(self):
         for i in (0, 99, 100, 1234):

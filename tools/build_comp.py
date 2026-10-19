@@ -127,7 +127,7 @@ def html(e):
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width={w}, height={h}" />
-    <title>{e["title"]}</title>
+    <title>{escape(e["title"])}</title>
     <script src="{GSAP}"></script>
     <style>
       * {{ margin: 0; padding: 0; box-sizing: border-box; }}

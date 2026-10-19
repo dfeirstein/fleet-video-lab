@@ -115,6 +115,13 @@ class CaptionWindow(unittest.TestCase):
         self.assertIn(">A &lt; B &amp; C</span>", doc)
         self.assertNotIn("<b>", doc)
 
+    def test_html_escapes_the_title(self):
+        e = full([], picture=[{"beat": 0, "beats": 2, "card": "A"}], beats=2)
+        e["title"] = "</title><script>alert(1)</script>"
+        doc = build_comp.html(e)
+        self.assertIn("<title>&lt;/title&gt;&lt;script&gt;alert(1)&lt;/script&gt;</title>", doc)
+        self.assertNotIn("<script>alert", doc)
+
     @unittest.skipUnless(shutil.which("ffmpeg"), "needs ffmpeg")
     def test_caption_is_gone_on_the_first_frame_after_the_cut(self):
         # 120 BPM, 24 fps: a caption at beat 4 for 4 beats ends on the cut at beat 8, t=4.0 s = frame 96

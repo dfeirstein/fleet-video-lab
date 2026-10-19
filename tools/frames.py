@@ -15,6 +15,7 @@ Frame n of an `f%03d` sequence is file n+1; this tool names files by TIME to avo
 """
 import argparse
 import json
+import math
 import os
 import re
 import statistics
@@ -26,6 +27,17 @@ from _common import duration, ensure_dir, ffmpeg, run  # noqa: E402
 TW, TH = 480, 270
 # its own files: NN is f"{i:02d}", at least two digits, so 100- and up match too
 OWN = re.compile(r"(\d{2,}-[\d.]+s|contact-sheet|dense-[\d.]+-[\d.]+|last-frame)\.png")
+
+
+def positive_finite(v):
+    """argparse type for the stillness thresholds: NaN, infinity and values <= 0 would report nothing still."""
+    try:
+        f = float(v)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"{v!r} is not a number")
+    if not math.isfinite(f) or f <= 0:
+        raise argparse.ArgumentTypeError(f"{v!r} must be a finite number greater than 0")
+    return f
 
 
 def stillness(src, out, still_ydif, still_seconds):
@@ -98,8 +110,8 @@ def main():
     ap.add_argument("--after", type=float, default=0.2, help="sample this long after each cut")
     ap.add_argument("--vertical", action="store_true", help="9:16 tiles")
     ap.add_argument("--stillness", action="store_true", help="also write motion.txt: the still runs, from signalstats YDIF")
-    ap.add_argument("--still-seconds", type=float, default=1.0, help="list still windows longer than this")
-    ap.add_argument("--still-ydif", type=float, default=0.5, help="a frame whose YDIF is under this is still")
+    ap.add_argument("--still-seconds", type=positive_finite, default=1.0, help="list still windows longer than this")
+    ap.add_argument("--still-ydif", type=positive_finite, default=0.5, help="a frame whose YDIF is under this is still")
     a = ap.parse_args()
     tw, th = (TH, TW) if a.vertical else (TW, TH)
     end = duration(a.src) - 0.05
