@@ -3,6 +3,7 @@
 #   make demo-dry   the whole pipeline with NO keys and NO spend: ffmpeg placeholders stand in for every generation
 #   make demo       the real thing (quotes first; cap 200 credits). Needs doctor all-ok and VOICE_ID set.
 #   make render     render the Hyperframes composition (index.html) the demo wrote
+#   make still-board  the start stills and each take's first/last frame in one labeled grid
 #   make donecheck  every deliverable in edit.json, gate by gate; names the first one missing (VERDICT=<file> to override)
 #   make test       the unit tests (after make demo-dry)
 #   make lint scan  ruff, and the privacy scan
@@ -14,7 +15,8 @@ BPM := 120
 END := 10
 DRY ?=
 
-.PHONY: doctor deps demo-dry demo generate cut proof render donecheck test lint scan clean-demo
+.PHONY: doctor deps demo-dry dry-generate dry-cut dry-proof dry-board dry-donecheck demo generate cut proof \
+	still-board render donecheck test lint scan clean-demo
 
 doctor:
 	$(PY) tools/doctor.py
@@ -24,7 +26,20 @@ deps:
 	@$(PY) -c "import numpy" 2>/dev/null || { echo "run: pip install -r requirements.txt"; exit 1; }
 
 demo-dry: deps
-	$(MAKE) generate cut proof DRY=--dry-run VOICE_ID=placeholder
+	$(MAKE) dry-donecheck DRY=--dry-run VOICE_ID=placeholder
+
+# the dry steps as a prerequisite chain (generate, cut, proof, the board, then the done-check), so make -j cannot
+# reorder them.
+# Each one sets DRY=--dry-run itself, so any dry-* goal run alone (make dry-board) can never spend.
+dry-generate:
+	$(MAKE) generate DRY=--dry-run VOICE_ID=placeholder
+dry-cut: dry-generate
+	$(MAKE) cut DRY=--dry-run VOICE_ID=placeholder
+dry-proof: dry-cut
+	$(MAKE) proof DRY=--dry-run VOICE_ID=placeholder
+dry-board: dry-proof
+	$(MAKE) still-board DRY=--dry-run VOICE_ID=placeholder
+dry-donecheck: dry-board
 	@# no judge runs on placeholders: a stand-in verdict in its own file, so the done-check can walk every gate
 	@# without ever writing or reading the project's real VERDICT.md
 	printf 'PASSES WITH FIXES\n\nDry run: placeholder footage, no judge ran. A real film needs a separate judge in VERDICT.md.\n' > "$(P)/VERDICT.dry-run.md"
@@ -69,6 +84,11 @@ proof:
 	$(PY) tools/peaks.py $(P)/takes/video/V01.mp4 0 2 2 2
 	$(PY) tools/score_level.py $(P)/out/final.mp4 --window 0-5 --window 5-10
 	$(PY) tools/spend_report.py --project $(P) --cap $(CAP) --used V01,V02 --title "Hello, Table"
+
+# the still board: every start still and each kept take's first/last frame, checked against the locked table in
+# SHOTS.md before any take is paid for. --takes is passed only once the takes folder exists (a fresh project has none).
+still-board:
+	$(PY) tools/still_board.py $(P)/stills $(P)/frames/still-board.png $(if $(wildcard $(P)/takes/video),--takes $(P)/takes/video)
 
 # done means this passes, never that the last command exited 0
 # VERDICT= reads that verdict file instead of the one edit.json names
