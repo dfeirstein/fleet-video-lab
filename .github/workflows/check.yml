@@ -54,8 +54,9 @@ jobs:
           python-version: "3.12"
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg fonts-dejavu-core
       - run: ffmpeg -version | head -1
-      # the animatic caption-window test needs ffmpeg, which the lint job does not install
-      - run: make test
+      # the animatic caption-window test and the still_board tests need ffmpeg, which the lint job does not install
+      - name: unit tests (synthetic ffmpeg inputs)
+        run: make test
       # exactly what a new user does: a fresh venv, the pip step from the README, then the demo
       - name: fresh venv, pip install, make demo-dry
         run: |
@@ -64,7 +65,7 @@ jobs:
           pip install -r requirements.txt
           make demo-dry
       - name: proof files exist
-        run: ls -la examples/hello-table/out/final.mp4 examples/hello-table/frames/contact-sheet.png examples/hello-table/SPEND.md examples/hello-table/index.html
+        run: ls -la examples/hello-table/out/final.mp4 examples/hello-table/frames/contact-sheet.png examples/hello-table/frames/still-board.png examples/hello-table/SPEND.md examples/hello-table/index.html
       - name: the run leaves the tree clean
         run: |
           git status --porcelain

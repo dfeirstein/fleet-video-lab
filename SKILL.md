@@ -29,18 +29,23 @@ done. Tools live in `tools/`; the method is `docs/METHOD.md`; setup is `docs/SET
 3. Agree the budget: a Higgsfield credit cap for the film (and a hard stop below it).
 
 ## The workflow
-Make a project folder (copy `examples/hello-table/`), then:
+Make a project folder (copy `examples/hello-table/`), then work the steps in order. Each row ends at its gate;
+the gates run in this order: references and assets; style guide and shot list; representative stills; rough cut
+and contact sheet; top-3 repair; audio, formats, deliverables.
 
-| Step | Do | Tool |
-|---|---|---|
-| 1. Brief | `BRIEF.md`: length, format, fps, BPM (beat and bar in seconds), concept chosen from three, look, palette, VO lines, budget | by hand |
-| 2. Sound | music bed first (plan on the BPM grid), profile the takes, pick one; then VO and SFX | `eleven.py music/tts/sfx`, `audio_profile.py`, `beat_grid.py`, `onsets.py`, `vo_segments.py` |
-| 3. Shots | `SHOTS.md`: stills table + jobs table, one house look, universal negatives; stills, then takes, serially | `run_batch.py` (-> `gpt_image.py`, `hf_shot.py`) |
-| 4. Comp | `edit.json`: picture in BEATS, sound in seconds, captions that never straddle a cut; write the composition (+ an ffmpeg animatic) | `build_comp.py`, `peaks.py` |
-| 5. Render | at the takes' native rate | `npx hyperframes@0.8.169 render <dir> -o out/render.mp4 --quality delivery --fps 24` |
-| 6. Master | -14 LUFS, true peak < -1 dBTP, real sound to the last sample | `master.py <render> out/final.mp4 <content_end_s>` |
-| 7. Proof | ffprobe line, 10 ms tail windows PASS, frames on every cut, the longest still run, section levels, SPEND.md | `audio_windows.py ... 0 0.01`, `frames.py --edit --stillness`, `score_level.py`, `spend_report.py` |
-| 8. Critic | a SEPARATE read-only judge writes a verdict file; the maker answers every finding by id | `docs/METHOD.md` section 4 |
+| Step | Do | Tool | Gate |
+|---|---|---|---|
+| 1. Brief | `BRIEF.md`: length, format, fps, BPM (beat and bar in seconds), concept chosen from three, look, palette, VO lines, budget, round cap (default 4) | by hand | references and assets approved; DO NOT COPY written |
+| 2. Sound | music bed first (plan on the BPM grid), profile the takes, pick one; then VO and SFX | `eleven.py music/tts/sfx`, `audio_profile.py`, `beat_grid.py`, `onsets.py`, `vo_segments.py` | the bed is chosen before any picture |
+| 3. Shots | `SHOTS.md`: stills table + jobs table, one house look, universal negatives, a locked-attributes table per recurring subject | by hand | style guide and shot list approved |
+| 4. Stills | the start stills only, one `gpt_image.py` call per row of the stills table; then the board (`make still-board`) | `gpt_image.py`, `still_board.py` | Gate: the still board is approved (by the person, or by a judge against the locked table) before `run_batch.py` spends a credit |
+| 5. Takes | the Seedance jobs, serially, quoted and logged; re-run the board with `--takes` | `run_batch.py` (-> `hf_shot.py`), `still_board.py --takes` | every kept take's first and last frame still match the locked table |
+| 6. Comp | `edit.json`: picture in BEATS, sound in seconds, captions that never straddle a cut (or `bridge: true`); write the composition (+ an ffmpeg animatic) | `build_comp.py`, `peaks.py` | rough cut (the animatic) and its contact sheet (`frames.py`) reviewed |
+| 7. Render | at the takes' native rate | `npx hyperframes@0.8.169 render <dir> -o out/render.mp4 --quality delivery --fps 24` | |
+| 8. Master | -14 LUFS, true peak < -1 dBTP, real sound to the last sample | `master.py <render> out/final.mp4 <content_end_s>` | |
+| 9. Proof | ffprobe line, 10 ms tail windows PASS, frames on every cut, the longest still run, section levels, SPEND.md | `audio_windows.py ... 0 0.01`, `frames.py --edit --stillness`, `score_level.py`, `spend_report.py` | |
+| 10. Critic | a SEPARATE read-only judge reports every finding and ends with a ranked `## Top 3`; the maker fixes those plus any regression, only there. The Top 3 is the must-fix set, not the whole verdict: the maker answers every finding by id (fixed, accepted, rejected, or deferred), and hands the deferred and residual findings to the person as a list. Each repair goes back to the step that made the defect and passes that step's gate again: identity or physical defects to stills (step 4) or takes (step 5), composition defects to the cut (step 6). | `docs/METHOD.md` section 4 | top-3 repair; stop at no HIGH finding, the round cap, or the budget, and hand what is left to the person as a list |
+| 11. Deliver | after the last round: loudness and the 10 ms tail re-checked on the final master, every format and deliverable on disk | `audio_windows.py`, `score_level.py`, `spend_report.py` | audio, formats, deliverables |
 
 ## Commands
 ```bash
@@ -53,7 +58,8 @@ python3 tools/gpt_image.py s01 "<prompt>" --project P [--size 1536x1024]
 python3 tools/build_comp.py --project P [--animatic out/render.mov]
 python3 tools/master.py P/out/render.mp4 P/out/final.mp4 <content_end_s>
 python3 tools/audio_windows.py P/out/final.mp4 0 0.01
-python3 tools/frames.py P/out/final.mp4 P/frames --edit P/edit.json [--dense 12-16] [--stillness]
+python3 tools/frames.py P/out/final.mp4 P/frames --edit P/edit.json [--dense 12-16] [--dense-only] [--stillness]
+python3 tools/still_board.py P/stills P/frames/still-board.png [--takes P/takes/video]
 python3 tools/spend_report.py --project P --cap 1000 --used V01,V02
 node tools/capture.mjs page.html out.png 1920 1080    # 1:1 proof of a card or page
 bash tools/scan_private.sh                            # before every push

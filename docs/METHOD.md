@@ -15,6 +15,16 @@ Every film keeps a `MAKING-OF.md` in its project folder, in this order:
    are often the best gag in the film; cut picture to the bed, not the other way round.
 4. **Shot list** (`SHOTS.md`): one row per still and per job, with the prompt verbatim. One house-look paragraph
    and one list of universal negatives, applied to every prompt.
+   - **Locked attributes.** Under the house look, one table per recurring subject (a person, a vehicle, an object,
+     a set) listing the attributes that must not change across takes: make and trim, wardrobe, hair, which side a
+     door hinges, how many of a thing there are. Add a DO NOT COPY line for any reference: what must not be
+     lifted from it (its subjects, logos, copy, people). A generator drifts a car make or an outfit between takes;
+     code never does, so this table matters most for generated footage. Keep these tables at three columns:
+     `run_batch.py` reads any two-column row whose first cell starts with `s` as a still to generate.
+   - **The still board is a gate.** `tools/still_board.py stills/ frames/still-board.png` puts every start still
+     side by side (with `--takes`, also the first and last frame of each kept take). It is approved, by the person
+     or by a judge against the locked table, before `run_batch.py` spends a credit on a take. A still costs pennies;
+     a take is a billed job. See `examples/hello-table/SHOTS.md` for a filled table.
 5. **Rejected takes and why.** Every take that is not in the cut, with the reason in one line.
 6. **"What I would fix" after watching it,** ranked. Fix the top three before calling it done.
 7. **Residual risks.** What could still read as generated, said plainly.
@@ -66,10 +76,21 @@ A claim about the film is either measured or marked `unverified:`.
    The maker's build script (`edit.json`, `tools/build_comp.py`) is the truth for what is in the cut, not the
    shot list or the making-of.
 3. The verdict file's first line is the bare verdict (`PASSES`, `PASSES WITH FIXES`, `FAILS`), then findings, each
-   with an id, a severity, a time in the film, evidence (frame file, number) and a proposed fix.
-4. The maker answers every finding by id in the next round's table: fixed (how, where), accepted (why), or
-   rejected (with evidence). Re-rolls are judged against the cut's timing, not only on looks.
-5. Repeat until the judge passes it or the budget stops it.
+   with an id, a severity, a time in the film, evidence (frame file, number) and a proposed fix. The judge still
+   reports EVERY finding (under-reporting is the failure mode), and ends the file with a ranked `## Top 3`: the
+   three findings, by id, that most hurt the film.
+4. **Repair is bounded.** In the next round the maker fixes the Top 3 plus any regression the verdict names, and
+   nothing else: touch only the sections of the cut those findings name, and re-render proof only around them
+   (`tools/frames.py <master> frames --dense-only --dense <t-1>-<t+1>` for a finding at time t: it writes just
+   that strip and leaves every other file in `frames/`, the still board included). The Top 3 is the must-fix set,
+   not the whole verdict: the maker answers every finding by id (fixed, accepted, rejected, or deferred), and
+   hands the deferred and residual findings to the person as a list. In the round's table that is: fixed (how,
+   where), accepted (why), rejected (with evidence), or deferred (not in this round's Top 3). Each repair goes
+   back to the step that made the defect and passes that step's gate again: identity or physical defects to stills
+   (step 4) or takes (step 5), composition defects to the cut (step 6). (Steps are the rows of SKILL.md's workflow
+   table.) Re-rolls are judged against the cut's timing, not only on looks.
+5. **Stop rule.** Stop when a verdict has no HIGH finding, or at the round cap stated in the brief (default 4
+   rounds), or when the budget stops it. Hand whatever is left to the person as a list, not another round.
 
 ### A neutral rubric for the judge
 
