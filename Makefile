@@ -4,6 +4,7 @@
 #   make demo       the real thing (quotes first; cap 200 credits). Needs doctor all-ok and VOICE_ID set.
 #   make render     render the Hyperframes composition (index.html) the demo wrote
 #   make lint scan  ruff, and the privacy scan
+#   make test       unit tests (the cut lint)
 PY ?= python3
 P ?= examples/hello-table
 HYPERFRAMES ?= npx -y hyperframes@0.8.169
@@ -12,7 +13,7 @@ BPM := 120
 END := 10
 DRY ?=
 
-.PHONY: doctor deps demo-dry demo generate cut proof render lint scan clean-demo
+.PHONY: doctor deps demo-dry demo generate cut proof render lint test scan clean-demo
 
 doctor:
 	$(PY) tools/doctor.py
@@ -54,7 +55,7 @@ render:
 proof:
 	ffprobe -v error -show_entries format=duration:stream=codec_name,width,height,r_frame_rate -of compact $(P)/out/final.mp4
 	$(PY) tools/audio_windows.py $(P)/out/final.mp4 0 0.01 --quiet
-	$(PY) tools/frames.py $(P)/out/final.mp4 $(P)/frames --edit $(P)/edit.json --dense 3.5-5.5
+	$(PY) tools/frames.py $(P)/out/final.mp4 $(P)/frames --edit $(P)/edit.json --dense 3.5-5.5 --stillness
 	$(PY) tools/beat_grid.py $(P)/audio/music.mp3 $(BPM) --beats 8
 	$(PY) tools/onsets.py $(P)/audio/music.mp3 $(BPM) 0 3
 	$(PY) tools/vo_segments.py $(P)/audio/vo-1.mp3
@@ -67,6 +68,9 @@ proof:
 lint:
 	ruff check tools
 	bash -n tools/scan_private.sh tools/local/keychain_env.sh
+
+test:
+	$(PY) -m unittest discover -s tests -v
 
 scan:
 	bash tools/scan_private.sh

@@ -18,6 +18,7 @@ jobs:
           python-version: "3.12"
       - run: pip install ruff
       - run: make lint
+      - run: make test
 
   scan:
     runs-on: ubuntu-latest

@@ -36,10 +36,10 @@ Make a project folder (copy `examples/hello-table/`), then:
 | 1. Brief | `BRIEF.md`: length, format, fps, BPM (beat and bar in seconds), concept chosen from three, look, palette, VO lines, budget | by hand |
 | 2. Sound | music bed first (plan on the BPM grid), profile the takes, pick one; then VO and SFX | `eleven.py music/tts/sfx`, `audio_profile.py`, `beat_grid.py`, `onsets.py`, `vo_segments.py` |
 | 3. Shots | `SHOTS.md`: stills table + jobs table, one house look, universal negatives; stills, then takes, serially | `run_batch.py` (-> `gpt_image.py`, `hf_shot.py`) |
-| 4. Comp | `edit.json`: picture in BEATS, sound in seconds; write the composition (+ an ffmpeg animatic) | `build_comp.py`, `peaks.py` |
+| 4. Comp | `edit.json`: picture in BEATS, sound in seconds, captions that never straddle a cut; write the composition (+ an ffmpeg animatic) | `build_comp.py`, `peaks.py` |
 | 5. Render | at the takes' native rate | `npx hyperframes@0.8.169 render <dir> -o out/render.mp4 --quality delivery --fps 24` |
 | 6. Master | -14 LUFS, true peak < -1 dBTP, real sound to the last sample | `master.py <render> out/final.mp4 <content_end_s>` |
-| 7. Proof | ffprobe line, 10 ms tail windows PASS, frames on every cut, section levels, SPEND.md | `audio_windows.py ... 0 0.01`, `frames.py --edit`, `score_level.py`, `spend_report.py` |
+| 7. Proof | ffprobe line, 10 ms tail windows PASS, frames on every cut, the longest still run, section levels, SPEND.md | `audio_windows.py ... 0 0.01`, `frames.py --edit --stillness`, `score_level.py`, `spend_report.py` |
 | 8. Critic | a SEPARATE read-only judge writes a verdict file; the maker answers every finding by id | `docs/METHOD.md` section 4 |
 
 ## Commands
@@ -53,7 +53,7 @@ python3 tools/gpt_image.py s01 "<prompt>" --project P [--size 1536x1024]
 python3 tools/build_comp.py --project P [--animatic out/render.mov]
 python3 tools/master.py P/out/render.mp4 P/out/final.mp4 <content_end_s>
 python3 tools/audio_windows.py P/out/final.mp4 0 0.01
-python3 tools/frames.py P/out/final.mp4 P/frames --edit P/edit.json [--dense 12-16]
+python3 tools/frames.py P/out/final.mp4 P/frames --edit P/edit.json [--dense 12-16] [--stillness]
 python3 tools/spend_report.py --project P --cap 1000 --used V01,V02
 node tools/capture.mjs page.html out.png 1920 1080    # 1:1 proof of a card or page
 bash tools/scan_private.sh                            # before every push

@@ -13,6 +13,10 @@
     {"beat": 8, "beats": 6, "take": "V02", "media_start": 0.5},
     {"beat": 14, "beats": 6, "card": "TABLE."}
   ],
+  "captions": [
+    {"beat": 3, "beats": 4, "text": "steam."},
+    {"beat": 9, "beats": 4, "text": "light."}
+  ],
   "audio": [
     {"id": "music", "src": "audio/music.mp3", "at": 0.0, "volume": 0.8},
     {"id": "vo1", "src": "audio/vo-1.mp3", "at": 0.5, "volume": 1.0},

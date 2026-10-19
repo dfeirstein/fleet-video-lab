@@ -2,7 +2,11 @@
 
 usage: python3 tools/frames.py <video> <out_dir> [--edit edit.json | --cuts 0,1.5,3 | --every 1.0]
                                [--dense a-b ...] [--fps 12] [--after 0.2]
+                               [--stillness [--still-seconds 1.0] [--still-ydif 0.5]]
   --edit reads the cut times from a build_comp.py edit list (beats x 60/bpm), so the frames sit on the real cut.
+  --stillness measures pacing: per-frame YDIF (ffmpeg signalstats, mean absolute luma change from the previous frame,
+  at full resolution); a frame under --still-ydif is still. Writes motion.txt: the longest still run in frames and
+  seconds, and every window still longer than --still-seconds (something should change about every second).
 Writes <out_dir>/NN-<t>s.png, contact-sheet.png (6 columns), dense-<a>-<b>.png per --dense window, last-frame.png.
 Frame n of an `f%03d` sequence is file n+1; this tool names files by TIME to avoid that off-by-one.
 """
@@ -17,6 +21,46 @@ from _common import duration, ensure_dir, ffmpeg, run  # noqa: E402
 TW, TH = 480, 270
 
 
+def stillness(src, out, still_ydif, still_seconds):
+    """Write <out>/motion.txt from per-frame signalstats YDIF; returns its path."""
+    # metadata=print writes to file=- (stdout), not the log, so it survives -v error
+    lines = run([ffmpeg(), "-v", "error", "-i", src, "-map", "0:v:0", "-vf",
+                 "signalstats,metadata=print:key=lavfi.signalstats.YDIF:file=-", "-f", "null", "-"]).stdout.splitlines()
+    times, ydif = [], []
+    for ln in lines:
+        if ln.startswith("frame:"):
+            times.append(float(ln.rsplit("pts_time:", 1)[1]))
+        elif ln.startswith("lavfi.signalstats.YDIF="):
+            ydif.append(float(ln.split("=", 1)[1]))
+    if not ydif or len(times) != len(ydif):
+        sys.exit(f"stillness: no YDIF read from {src}")
+    fps = (len(times) - 1) / (times[-1] - times[0]) if len(times) > 1 else 1.0
+    runs, start = [], None  # [first, last] frame index of each still run
+    for i, y in enumerate(ydif + [still_ydif]):
+        if y < still_ydif and start is None:
+            start = i
+        elif y >= still_ydif and start is not None:
+            runs.append((start, i - 1))
+            start = None
+    longest = max(runs, key=lambda r: r[1] - r[0], default=None)
+    long_runs = [r for r in runs if (r[1] - r[0] + 1) / fps > still_seconds + 1e-9]
+    rows = [f"src: {os.path.basename(src)}", f"frames: {len(ydif)} at {fps:.3f} fps",
+            f"still: YDIF < {still_ydif} (signalstats, full resolution); windows over {still_seconds} s listed",
+            f"YDIF: mean {sum(ydif) / len(ydif):.3f}, max {max(ydif):.3f}"]
+    if longest:
+        n, a, b = longest[1] - longest[0] + 1, times[longest[0]], times[longest[1]] + 1 / fps
+        rows.append(f"longest still run: {n} frames, {n / fps:.3f} s ({a:.3f}-{b:.3f} s)")
+    else:
+        rows.append("longest still run: 0 frames, 0.000 s")
+    rows.append(f"still windows over {still_seconds} s: {len(long_runs)}")
+    for a, b in long_runs:
+        rows.append(f"  {times[a]:.3f}-{times[b] + 1 / fps:.3f} s  {b - a + 1} frames  {(b - a + 1) / fps:.3f} s")
+    path = os.path.join(out, "motion.txt")
+    with open(path, "w") as f:
+        f.write("\n".join(rows) + "\n")
+    return path
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("src")
@@ -28,6 +72,9 @@ def main():
     ap.add_argument("--fps", type=int, default=12, help="dense strip rate")
     ap.add_argument("--after", type=float, default=0.2, help="sample this long after each cut")
     ap.add_argument("--vertical", action="store_true", help="9:16 tiles")
+    ap.add_argument("--stillness", action="store_true", help="also write motion.txt: the still runs, from signalstats YDIF")
+    ap.add_argument("--still-seconds", type=float, default=1.0, help="list still windows longer than this")
+    ap.add_argument("--still-ydif", type=float, default=0.5, help="a frame whose YDIF is under this is still")
     a = ap.parse_args()
     tw, th = (TH, TW) if a.vertical else (TW, TH)
     end = duration(a.src) - 0.05
@@ -74,6 +121,10 @@ def main():
     run([ffmpeg(), "-v", "error", "-y", "-ss", str(max(0, end - 0.1)), "-i", a.src, "-update", "1",
          os.path.join(a.out, "last-frame.png")])
     print(len(paths), "frames,", rows, "rows,", len(a.dense), "dense strips, last-frame.png ->", a.out)
+    if a.stillness:
+        m = stillness(a.src, a.out, a.still_ydif, a.still_seconds)
+        with open(m) as f:
+            print(f.read().rstrip())
 
 
 if __name__ == "__main__":
