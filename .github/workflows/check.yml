@@ -18,7 +18,11 @@ jobs:
           python-version: "3.12"
       - run: pip install ruff
       - run: make lint
-      - run: make test
+      # test_donecheck reads the demo's output, so it runs in the demo-dry job; here the ffmpeg tests skip
+      - name: unit tests that need no demo output
+        run: |
+          cd tests
+          python3 -m unittest -v test_still_board test_frames test_makefile test_build_comp
 
   scan:
     runs-on: ubuntu-latest
