@@ -53,8 +53,11 @@ jobs:
           python-version: "3.12"
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg fonts-dejavu-core
       - run: ffmpeg -version | head -1
-      - name: still_board unit tests (synthetic ffmpeg inputs)
-        run: python3 -m unittest discover -s tests -v
+      # the tests that need no demo output; test_donecheck reads the demo's output, so make test runs it below
+      - name: still_board, frames and Makefile unit tests (synthetic ffmpeg inputs)
+        run: |
+          cd tests
+          python3 -m unittest -v test_still_board test_frames test_makefile
       # exactly what a new user does: a fresh venv, the pip step from the README, then the demo
       - name: fresh venv, pip install, make demo-dry
         run: |
