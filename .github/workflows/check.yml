@@ -54,6 +54,8 @@ jobs:
           python-version: "3.12"
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg fonts-dejavu-core
       - run: ffmpeg -version | head -1
+      # the animatic caption-window test needs ffmpeg, which the lint job does not install
+      - run: make test
       # exactly what a new user does: a fresh venv, the pip step from the README, then the demo
       - name: fresh venv, pip install, make demo-dry
         run: |
