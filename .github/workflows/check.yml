@@ -54,9 +54,12 @@ jobs:
           python-version: "3.12"
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg fonts-dejavu-core
       - run: ffmpeg -version | head -1
+      # the tests that need no demo output; test_donecheck reads the demo's output, so make test runs it below
       # the animatic caption-window test and the still_board tests need ffmpeg, which the lint job does not install
-      - name: unit tests (synthetic ffmpeg inputs)
-        run: make test
+      - name: still_board, frames, Makefile and cut lint unit tests (synthetic ffmpeg inputs)
+        run: |
+          cd tests
+          python3 -m unittest -v test_still_board test_frames test_makefile test_build_comp
       # exactly what a new user does: a fresh venv, the pip step from the README, then the demo
       - name: fresh venv, pip install, make demo-dry
         run: |
@@ -64,6 +67,10 @@ jobs:
           . .venv/bin/activate
           pip install -r requirements.txt
           make demo-dry
+      - name: done-check unit test on the demo output
+        run: |
+          . .venv/bin/activate
+          make test
       - name: proof files exist
         run: ls -la examples/hello-table/out/final.mp4 examples/hello-table/frames/contact-sheet.png examples/hello-table/frames/still-board.png examples/hello-table/SPEND.md examples/hello-table/index.html
       - name: the run leaves the tree clean

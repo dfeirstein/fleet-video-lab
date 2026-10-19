@@ -46,6 +46,7 @@ and contact sheet; top-3 repair; audio, formats, deliverables.
 | 9. Proof | ffprobe line, 10 ms tail windows PASS, frames on every cut, the longest still run, section levels, SPEND.md | `audio_windows.py ... 0 0.01`, `frames.py --edit --stillness`, `score_level.py`, `spend_report.py` | |
 | 10. Critic | a SEPARATE read-only judge reports every finding and ends with a ranked `## Top 3`; the maker fixes those plus any regression, only there. The Top 3 is the must-fix set, not the whole verdict: the maker answers every finding by id (fixed, accepted, rejected, or deferred), and hands the deferred and residual findings to the person as a list. Each repair goes back to the step that made the defect and passes that step's gate again: identity or physical defects to stills (step 4) or takes (step 5), composition defects to the cut (step 6). | `docs/METHOD.md` section 4 | top-3 repair; stop at no HIGH finding, the round cap, or the budget, and hand what is left to the person as a list |
 | 11. Deliver | after the last round: loudness and the 10 ms tail re-checked on the final master, every format and deliverable on disk | `audio_windows.py`, `score_level.py`, `spend_report.py` | audio, formats, deliverables |
+| 12. Done | every deliverable in `edit.json`'s `deliverables` block, gate by gate: brief, shots, still board, takes, render, master, proof frames, spend, verdict; it names the first one missing | `donecheck.py --project P` | done means `donecheck: all gates met`, never that the last command exited 0 |
 
 ## Commands
 ```bash
@@ -61,6 +62,7 @@ python3 tools/audio_windows.py P/out/final.mp4 0 0.01
 python3 tools/frames.py P/out/final.mp4 P/frames --edit P/edit.json [--dense 12-16] [--dense-only] [--stillness]
 python3 tools/still_board.py P/stills P/frames/still-board.png [--takes P/takes/video]
 python3 tools/spend_report.py --project P --cap 1000 --used V01,V02
+python3 tools/donecheck.py --project P                # done = 'donecheck: all gates met', exit 0
 node tools/capture.mjs page.html out.png 1920 1080    # 1:1 proof of a card or page
 bash tools/scan_private.sh                            # before every push
 ```
