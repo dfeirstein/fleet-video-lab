@@ -26,7 +26,7 @@ Checked on the still board (`frames/still-board.png`) before any take, and on bo
 | Light | soft morning window light from frame left, warm neutral | every cell |
 
 DO NOT COPY: no reference image is used for this film. When a film uses one, name here what must not be lifted
-from it (its subjects, logos, copy, people), and keep only the analysed look.
+from it (its subjects, logos, copy, people), and keep only the analyzed look.
 
 ## Stills (GPT image, `tools/gpt_image.py`, 1536x1024)
 

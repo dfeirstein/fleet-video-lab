@@ -3,7 +3,7 @@
 #   make demo-dry   the whole pipeline with NO keys and NO spend: ffmpeg placeholders stand in for every generation
 #   make demo       the real thing (quotes first; cap 200 credits). Needs doctor all-ok and VOICE_ID set.
 #   make render     render the Hyperframes composition (index.html) the demo wrote
-#   make still-board  the start stills and each take's first/last frame in one labelled grid
+#   make still-board  the start stills and each take's first/last frame in one labeled grid
 #   make lint scan  ruff, and the privacy scan
 PY ?= python3
 P ?= examples/hello-table
@@ -26,15 +26,16 @@ deps:
 demo-dry: deps
 	$(MAKE) dry-board DRY=--dry-run VOICE_ID=placeholder
 
-# the dry steps as a prerequisite chain (generate, cut, proof, then the board), so make -j cannot reorder them
+# the dry steps as a prerequisite chain (generate, cut, proof, then the board), so make -j cannot reorder them.
+# Each one sets DRY=--dry-run itself, so any dry-* goal run alone (make dry-board) can never spend.
 dry-generate:
-	$(MAKE) generate
+	$(MAKE) generate DRY=--dry-run VOICE_ID=placeholder
 dry-cut: dry-generate
-	$(MAKE) cut
+	$(MAKE) cut DRY=--dry-run VOICE_ID=placeholder
 dry-proof: dry-cut
-	$(MAKE) proof
+	$(MAKE) proof DRY=--dry-run VOICE_ID=placeholder
 dry-board: dry-proof
-	$(MAKE) still-board
+	$(MAKE) still-board DRY=--dry-run VOICE_ID=placeholder
 
 demo: deps
 	@test -n "$(VOICE_ID)" || { echo "set VOICE_ID (an ElevenLabs voice id; list yours with GET https://api.elevenlabs.io/v1/voices)"; exit 1; }

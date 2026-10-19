@@ -18,7 +18,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _common import duration, ensure_dir, ffmpeg, run  # noqa: E402
 
 TW, TH = 480, 270
-OWN = re.compile(r"(\d\d-[\d.]+s|contact-sheet|dense-[\d.]+-[\d.]+|last-frame)\.png")
+# its own files: NN is f"{i:02d}", at least two digits, so 100- and up match too
+OWN = re.compile(r"(\d{2,}-[\d.]+s|contact-sheet|dense-[\d.]+-[\d.]+|last-frame)\.png")
 
 
 def main():
