@@ -21,8 +21,10 @@ every offending caption; on success it prints `cut lint: 0 straddles`.
 """
 import argparse
 import json
+import math
 import os
 import sys
+from html import escape
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _common import ensure_dir, ffmpeg, project, run  # noqa: E402
@@ -46,29 +48,55 @@ def load(root, name):
     return e
 
 
+def caption_window(c):
+    """The caption's window in beats, half-open [start, end): up from its first beat, gone on its end beat.
+
+    The lint, the composition and the animatic all read this one definition. A malformed caption exits naming it."""
+    name = f"caption {c.get('text')!r}"
+    for k in ("beat", "beats"):
+        v = c.get(k)
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v):
+            sys.exit(f"edit list: {name}: {k!r} must be a finite number, got {v!r}")
+    if c["beats"] <= 0:
+        sys.exit(f"edit list: {name}: 'beats' must be greater than 0, got {c['beats']!r}")
+    if not isinstance(c.get("bridge", False), bool):
+        sys.exit(f"edit list: {name}: 'bridge' must be true or false, got {c['bridge']!r}")
+    return c["beat"], c["beat"] + c["beats"]
+
+
+def enable_expr(c, B):
+    """ffmpeg drawtext enable= for the caption window: gte/lt, because between() would also draw the end frame."""
+    a, b = caption_window(c)
+    return f"gte(t,{round(a * B, 5)})*lt(t,{round(b * B, 5)})"
+
+
 def cut_lint(e):
     """Refuse a caption that crosses a cut (unless bridged), overlaps a camera move, or runs off the film.
 
-    Returns the number of bridged captions; exits with one line per offending caption otherwise."""
+    Returns the number of bridged captions; exits with one line per offence and the count of each kind otherwise."""
     cuts = [p["beat"] for p in e["picture"][1:]]
-    bad, bridged = [], 0
+    straddles, overlaps, outside, bridged = [], [], [], 0
     for c in e["captions"]:
-        a, b = c["beat"], c["beat"] + c["beats"]
+        a, b = caption_window(c)
         name = f"caption {c['text']!r} (beats {a}-{b})"
-        if a < 0 or b > e["beats"] + 1e-9:
-            bad.append(f"cut lint: {name} runs outside the film (0-{e['beats']})")
+        if a < -1e-9 or b > e["beats"] + 1e-9:
+            outside.append(f"cut lint: {name} runs outside the film (0-{e['beats']})")
         straddled = [x for x in cuts if a + 1e-9 < x < b - 1e-9]
-        if straddled and c.get("bridge"):
+        if straddled and c.get("bridge") is True:
             bridged += 1
         elif straddled:
-            bad.append(f"cut lint: {name} straddles the cut at beat {straddled[0]}; "
-                       f"end it by beat {straddled[0]} or mark it \"bridge\": true")
+            straddles.append(f"cut lint: {name} straddles the cut at beat {straddled[0]}; "
+                             f"end it by beat {straddled[0]} or mark it \"bridge\": true")
         for m in e["moves"]:
             if a + 1e-9 < m["beat"] + m["beats"] and m["beat"] + 1e-9 < b:
-                bad.append(f"cut lint: {name} overlaps the camera move at beats {m['beat']}-{m['beat'] + m['beats']}")
-    if bad:
-        sys.exit("\n".join(bad + [f"cut lint: {len(bad)} straddles"]))
+                overlaps.append(f"cut lint: {name} overlaps the camera move at beats {m['beat']}-{m['beat'] + m['beats']}")
+    if straddles or overlaps or outside:
+        sys.exit("\n".join(straddles + overlaps + outside + [lint_line(len(straddles), len(overlaps), len(outside))]))
     return bridged
+
+
+def lint_line(straddles, overlaps, outside):
+    return f"cut lint: {straddles} straddles, {overlaps} move overlaps, {outside} out of film"
 
 
 def html(e):
@@ -81,13 +109,14 @@ def html(e):
                         f'data-track-index="0"></video>')
         else:
             body.append(f'<div id="p{n:02d}" class="clip card" data-start="{s}" data-duration="{d}" '
-                        f'data-track-index="0"><span id="t{n:02d}">{p["card"]}</span></div>')
+                        f'data-track-index="0"><span id="t{n:02d}">{escape(p["card"])}</span></div>')
             # every type entry is a hard cut with a short scale punch: no fades, no melting type
             js.append(f'tl.fromTo("#t{n:02d}", {{scale: 1.5}}, {{scale: 1, duration: 0.06, ease: "power4.out"}}, {s});')
     for n, c in enumerate(e["captions"]):
-        s, d = round(c["beat"] * B, 5), round(c["beats"] * B, 5)
+        a, b = caption_window(c)
+        s, d = round(a * B, 5), round((b - a) * B, 5)
         body.append(f'<div id="c{n:02d}" class="clip caption" data-start="{s}" data-duration="{d}" '
-                    f'data-track-index="{1 + len(e["audio"])}"><span>{c["text"]}</span></div>')
+                    f'data-track-index="{1 + len(e["audio"])}"><span>{escape(c["text"])}</span></div>')
     for k, a in enumerate(e["audio"]):
         body.append(f'<audio id="{a["id"]}" src="{a["src"]}" data-start="{a["at"]}" '
                     f'data-volume="{a.get("volume", 1)}" data-track-index="{1 + k}"></audio>')
@@ -150,8 +179,7 @@ def animatic(e, root, out):
                           f"fontsize={h // 5}:x=(w-tw)/2:y=(h-th)/2,format=yuv420p,setsar=1[v{n}]")
         labels.append(f"[v{n}]")
     caps = "".join(f",drawtext={ff}text='{drawtext_escape(c['text'])}':fontcolor={e['palette']['fg']}:fontsize={h // 16}:"
-                   f"x=(w-tw)/2:y=h-th-{h // 12}:enable='between(t,{round(c['beat'] * B, 5)},"
-                   f"{round((c['beat'] + c['beats']) * B, 5)})'" for c in e["captions"])
+                   f"x=(w-tw)/2:y=h-th-{h // 12}:enable='{enable_expr(c, B)}'" for c in e["captions"])
     chains.append(f"{''.join(labels)}concat=n={len(labels)}:v=1:a=0{caps}[v]")
     base = len(e["picture"])
     for k, a in enumerate(e["audio"]):
@@ -176,7 +204,7 @@ def main():
     root = project(a.project)
     e = load(root, a.edit)
     bridged = cut_lint(e)
-    print("cut lint: 0 straddles" + (f", {bridged} bridged" if bridged else ""))
+    print(lint_line(0, 0, 0) + (f", {bridged} bridged" if bridged else ""))
     out = os.path.join(root, "index.html")
     with open(out, "w") as f:
         f.write(html(e))

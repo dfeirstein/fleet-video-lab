@@ -5,14 +5,16 @@ usage: python3 tools/frames.py <video> <out_dir> [--edit edit.json | --cuts 0,1.
                                [--stillness [--still-seconds 1.0] [--still-ydif 0.5]]
   --edit reads the cut times from a build_comp.py edit list (beats x 60/bpm), so the frames sit on the real cut.
   --stillness measures pacing: per-frame YDIF (ffmpeg signalstats, mean absolute luma change from the previous frame,
-  at full resolution); a frame under --still-ydif is still. Writes motion.txt: the longest still run in frames and
-  seconds, and every window still longer than --still-seconds (something should change about every second).
+  at full resolution); a frame under --still-ydif is still. Frame 0 has no previous frame and is not counted; seconds
+  come from the frame timestamps. Writes motion.txt: the longest still run in frames and seconds, and every window
+  still longer than --still-seconds (something should change about every second).
 Writes <out_dir>/NN-<t>s.png, contact-sheet.png (6 columns), dense-<a>-<b>.png per --dense window, last-frame.png.
 Frame n of an `f%03d` sequence is file n+1; this tool names files by TIME to avoid that off-by-one.
 """
 import argparse
 import json
 import os
+import statistics
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -34,31 +36,48 @@ def stillness(src, out, still_ydif, still_seconds):
             ydif.append(float(ln.split("=", 1)[1]))
     if not ydif or len(times) != len(ydif):
         sys.exit(f"stillness: no YDIF read from {src}")
-    fps = (len(times) - 1) / (times[-1] - times[0]) if len(times) > 1 else 1.0
-    runs, start = [], None  # [first, last] frame index of each still run
-    for i, y in enumerate(ydif + [still_ydif]):
-        if y < still_ydif and start is None:
+    path = os.path.join(out, "motion.txt")
+    with open(path, "w") as f:
+        f.write("\n".join(still_report(os.path.basename(src), times, ydif, still_ydif, still_seconds)) + "\n")
+    return path
+
+
+def still_report(name, times, ydif, still_ydif, still_seconds):
+    """The motion.txt rows from per-frame pts_time and YDIF.
+
+    Frame 0 has no previous frame (signalstats reports YDIF 0 for it), so it is left out: each counted frame is one
+    comparison with the frame before it. Seconds come from the timestamps, not an average fps: a run lasts from its
+    first frame's pts to its last frame's pts plus one median frame interval."""
+    if len(times) < 2:
+        sys.exit(f"stillness: {name} has {len(times)} frame(s); need at least 2 to compare")
+    dt = statistics.median(b - a for a, b in zip(times, times[1:]))
+    t, y = times[1:], ydif[1:]
+    runs, start = [], None  # [first, last] index into t of each still run
+    for i, v in enumerate(y + [still_ydif]):
+        if v < still_ydif and start is None:
             start = i
-        elif y >= still_ydif and start is not None:
+        elif v >= still_ydif and start is not None:
             runs.append((start, i - 1))
             start = None
-    longest = max(runs, key=lambda r: r[1] - r[0], default=None)
-    long_runs = [r for r in runs if (r[1] - r[0] + 1) / fps > still_seconds + 1e-9]
-    rows = [f"src: {os.path.basename(src)}", f"frames: {len(ydif)} at {fps:.3f} fps",
+
+    def secs(r):
+        return t[r[1]] - t[r[0]] + dt
+
+    longest = max(runs, key=secs, default=None)
+    long_runs = [r for r in runs if secs(r) > still_seconds + 1e-9]
+    rows = [f"src: {name}", f"frames: {len(times)}, {len(y)} compared with the previous frame (frame 0 has none); "
+            f"median interval {dt:.4f} s",
             f"still: YDIF < {still_ydif} (signalstats, full resolution); windows over {still_seconds} s listed",
-            f"YDIF: mean {sum(ydif) / len(ydif):.3f}, max {max(ydif):.3f}"]
+            f"YDIF: mean {sum(y) / len(y):.3f}, max {max(y):.3f}"]
     if longest:
-        n, a, b = longest[1] - longest[0] + 1, times[longest[0]], times[longest[1]] + 1 / fps
-        rows.append(f"longest still run: {n} frames, {n / fps:.3f} s ({a:.3f}-{b:.3f} s)")
+        a, b = longest
+        rows.append(f"longest still run: {b - a + 1} frames, {secs(longest):.3f} s ({t[a]:.3f}-{t[b] + dt:.3f} s)")
     else:
         rows.append("longest still run: 0 frames, 0.000 s")
     rows.append(f"still windows over {still_seconds} s: {len(long_runs)}")
     for a, b in long_runs:
-        rows.append(f"  {times[a]:.3f}-{times[b] + 1 / fps:.3f} s  {b - a + 1} frames  {(b - a + 1) / fps:.3f} s")
-    path = os.path.join(out, "motion.txt")
-    with open(path, "w") as f:
-        f.write("\n".join(rows) + "\n")
-    return path
+        rows.append(f"  {t[a]:.3f}-{t[b] + dt:.3f} s  {b - a + 1} frames  {secs((a, b)):.3f} s")
+    return rows
 
 
 def main():
