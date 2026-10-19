@@ -55,6 +55,16 @@ A claim about the film is either measured or marked `unverified:`.
 - **Frames:** `tools/frames.py --edit edit.json` puts a labelled frame just after every cut, a contact sheet, dense
   strips of the fast stretches, and the true last frame. Judge at 1:1 on the graded final render at its real fps,
   never on a coarse strip.
+- **Pacing:** something should change about every second. `tools/frames.py --stillness` measures it: per-frame
+  YDIF (ffmpeg `signalstats`, the mean absolute luma change from the previous frame) at full resolution, a frame
+  under `--still-ydif` (default 0.5) counts as still, and `frames/motion.txt` gets the longest still run in frames
+  and seconds plus every window still longer than `--still-seconds` (default 1.0). Frame 0 has no previous frame,
+  so it is not counted, and seconds come from the frame timestamps, not an average fps. Quote the longest run; cut or
+  explain every listed window. A held end card is a listed window by design: say so, do not hide it.
+- **Cut lint:** `tools/build_comp.py` refuses a caption that crosses a picture cut (unless it says `"bridge": true`)
+  or is up during a camera move (`moves`), and prints `cut lint: 0 straddles, 0 move overlaps, 0 out of film` when
+  the edit list is clean. A caption is up on `[beat, beat + beats)`: it is gone on the frame its end beat starts, in
+  the lint, the composition and the animatic alike.
 - **The judge cannot listen.** Sound claims are measured (`ebur128`, `astats`, `tools/score_level.py`,
   `tools/onsets.py`), or marked unverified.
 

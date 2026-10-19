@@ -2,7 +2,12 @@
 
 usage: python3 tools/frames.py <video> <out_dir> [--edit edit.json | --cuts 0,1.5,3 | --every 1.0]
                                [--dense a-b ...] [--dense-only] [--fps 12] [--after 0.2] [--poster t]
+                               [--stillness [--still-seconds 1.0] [--still-ydif 0.5]]
   --edit reads the cut times from a build_comp.py edit list (beats x 60/bpm), so the frames sit on the real cut.
+  --stillness measures pacing: per-frame YDIF (ffmpeg signalstats, mean absolute luma change from the previous frame,
+  at full resolution); a frame under --still-ydif is still. Frame 0 has no previous frame and is not counted; seconds
+  come from the frame timestamps. Writes motion.txt: the longest still run in frames and seconds, and every window
+  still longer than --still-seconds (something should change about every second).
 Writes <out_dir>/NN-<t>s.png, contact-sheet.png (6 columns), dense-<a>-<b>.png per --dense window, first-frame.png,
 last-frame.png, and poster.png (the frame at --poster seconds) when asked;
 it replaces only its own earlier files of those names, so other PNGs in out_dir (still-board.png) stay.
@@ -11,8 +16,10 @@ Frame n of an `f%03d` sequence is file n+1; this tool names files by TIME to avo
 """
 import argparse
 import json
+import math
 import os
 import re
+import statistics
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -21,6 +28,74 @@ from _common import duration, ensure_dir, ffmpeg, run  # noqa: E402
 TW, TH = 480, 270
 # its own files: NN is f"{i:02d}", at least two digits, so 100- and up match too
 OWN = re.compile(r"(\d{2,}-[\d.]+s|contact-sheet|dense-[\d.]+-[\d.]+|last-frame)\.png")
+
+
+def positive_finite(v):
+    """argparse type for the stillness thresholds: NaN, infinity and values <= 0 would report nothing still."""
+    try:
+        f = float(v)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"{v!r} is not a number")
+    if not math.isfinite(f) or f <= 0:
+        raise argparse.ArgumentTypeError(f"{v!r} must be a finite number greater than 0")
+    return f
+
+
+def stillness(src, out, still_ydif, still_seconds):
+    """Write <out>/motion.txt from per-frame signalstats YDIF; returns its path."""
+    # metadata=print writes to file=- (stdout), not the log, so it survives -v error
+    lines = run([ffmpeg(), "-v", "error", "-i", src, "-map", "0:v:0", "-vf",
+                 "signalstats,metadata=print:key=lavfi.signalstats.YDIF:file=-", "-f", "null", "-"]).stdout.splitlines()
+    times, ydif = [], []
+    for ln in lines:
+        if ln.startswith("frame:"):
+            times.append(float(ln.rsplit("pts_time:", 1)[1]))
+        elif ln.startswith("lavfi.signalstats.YDIF="):
+            ydif.append(float(ln.split("=", 1)[1]))
+    if not ydif or len(times) != len(ydif):
+        sys.exit(f"stillness: no YDIF read from {src}")
+    path = os.path.join(out, "motion.txt")
+    with open(path, "w") as f:
+        f.write("\n".join(still_report(os.path.basename(src), times, ydif, still_ydif, still_seconds)) + "\n")
+    return path
+
+
+def still_report(name, times, ydif, still_ydif, still_seconds):
+    """The motion.txt rows from per-frame pts_time and YDIF.
+
+    Frame 0 has no previous frame (signalstats reports YDIF 0 for it), so it is left out: each counted frame is one
+    comparison with the frame before it. Seconds come from the timestamps, not an average fps: a run lasts from its
+    first frame's pts to its last frame's pts plus one median frame interval."""
+    if len(times) < 2:
+        sys.exit(f"stillness: {name} has {len(times)} frame(s); need at least 2 to compare")
+    dt = statistics.median(b - a for a, b in zip(times, times[1:]))
+    t, y = times[1:], ydif[1:]
+    runs, start = [], None  # [first, last] index into t of each still run
+    for i, v in enumerate(y + [still_ydif]):
+        if v < still_ydif and start is None:
+            start = i
+        elif v >= still_ydif and start is not None:
+            runs.append((start, i - 1))
+            start = None
+
+    def secs(r):
+        return t[r[1]] - t[r[0]] + dt
+
+    longest = max(runs, key=secs, default=None)
+    long_runs = [r for r in runs if secs(r) > still_seconds + 1e-9]
+    rows = [f"src: {name}", f"frames: {len(times)}, {len(y)} compared with the previous frame (frame 0 has none); "
+            f"median interval {dt:.4f} s",
+            f"still: YDIF < {still_ydif} (signalstats, full resolution); windows over {still_seconds} s listed",
+            f"YDIF: mean {sum(y) / len(y):.3f}, max {max(y):.3f}"]
+    if longest:
+        a, b = longest
+        rows.append(f"longest still run: {b - a + 1} frames, {secs(longest):.3f} s ({t[a]:.3f}-{t[b] + dt:.3f} s)")
+    else:
+        rows.append("longest still run: 0 frames, 0.000 s")
+    rows.append(f"still windows over {still_seconds} s: {len(long_runs)}")
+    for a, b in long_runs:
+        rows.append(f"  {t[a]:.3f}-{t[b] + dt:.3f} s  {b - a + 1} frames  {secs((a, b)):.3f} s")
+    return rows
 
 
 def main():
@@ -36,6 +111,9 @@ def main():
     ap.add_argument("--after", type=float, default=0.2, help="sample this long after each cut")
     ap.add_argument("--vertical", action="store_true", help="9:16 tiles")
     ap.add_argument("--poster", type=float, default=None, help="write poster.png: the full-size frame at this time")
+    ap.add_argument("--stillness", action="store_true", help="also write motion.txt: the still runs, from signalstats YDIF")
+    ap.add_argument("--still-seconds", type=positive_finite, default=1.0, help="list still windows longer than this")
+    ap.add_argument("--still-ydif", type=positive_finite, default=0.5, help="a frame whose YDIF is under this is still")
     a = ap.parse_args()
     tw, th = (TH, TW) if a.vertical else (TW, TH)
     end = duration(a.src) - 0.05
@@ -92,6 +170,10 @@ def main():
     run([ffmpeg(), "-v", "error", "-y", "-ss", str(max(0, end - 0.1)), "-i", a.src, "-update", "1",
          os.path.join(a.out, "last-frame.png")])
     print(len(paths), "frames,", rows, "rows,", len(a.dense), "dense strips, last-frame.png ->", a.out)
+    if a.stillness:
+        m = stillness(a.src, a.out, a.still_ydif, a.still_seconds)
+        with open(m) as f:
+            print(f.read().rstrip())
 
 
 if __name__ == "__main__":

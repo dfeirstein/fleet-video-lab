@@ -5,7 +5,7 @@
 #   make render     render the Hyperframes composition (index.html) the demo wrote
 #   make still-board  the start stills and each take's first/last frame in one labeled grid
 #   make donecheck  every deliverable in edit.json, gate by gate; names the first one missing (VERDICT=<file> to override)
-#   make test       the unit tests (after make demo-dry)
+#   make test       the unit tests, the cut lint among them (after make demo-dry)
 #   make lint scan  ruff, and the privacy scan
 PY ?= python3
 P ?= examples/hello-table
@@ -75,7 +75,7 @@ render:
 proof:
 	ffprobe -v error -show_entries format=duration:stream=codec_name,width,height,r_frame_rate -of compact $(P)/out/final.mp4
 	$(PY) tools/audio_windows.py $(P)/out/final.mp4 0 0.01 --quiet
-	$(PY) tools/frames.py $(P)/out/final.mp4 $(P)/frames --edit $(P)/edit.json --dense 3.5-5.5 --poster 9
+	$(PY) tools/frames.py $(P)/out/final.mp4 $(P)/frames --edit $(P)/edit.json --dense 3.5-5.5 --stillness --poster 9
 	$(PY) tools/beat_grid.py $(P)/audio/music.mp3 $(BPM) --beats 8
 	$(PY) tools/onsets.py $(P)/audio/music.mp3 $(BPM) 0 3
 	$(PY) tools/vo_segments.py $(P)/audio/vo-1.mp3
